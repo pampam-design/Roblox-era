@@ -131,6 +131,7 @@ local function buildShop(packs)
 		end)
 	end
 end
+shopButton.Visible = false -- shown only if the server says the shop is enabled
 shopButton.Activated:Connect(function() shop.Visible = true end)
 shopClose.Activated:Connect(function() shop.Visible = false end)
 ReplicatedStorage:WaitForChild("InventoryChanged").OnClientEvent:Connect(buildShop)
@@ -345,6 +346,7 @@ function showMenu()
 	local res = remote:InvokeServer("menu")
 	if res and res.menu then buildCards(res.menu) end
 	if res and res.packs then buildShop(res.packs) end
+	shopButton.Visible = res ~= nil and res.shopEnabled == true
 end
 
 quit.Activated:Connect(function() if not busy then showMenu() end end)

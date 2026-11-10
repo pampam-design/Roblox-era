@@ -11,6 +11,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Engine = require(Shared:WaitForChild("Engine"))
 local Scenarios = require(Shared:WaitForChild("Scenarios"))
 local Shop = require(Shared:WaitForChild("Shop"))
+local Config = require(Shared:WaitForChild("Config"))
 
 local packById = {}
 for _, pack in ipairs(Shop) do packById[pack.id] = pack end
@@ -131,7 +132,10 @@ remote.OnServerInvoke = function(player, action, arg)
 
 	if action == "menu" then
 		sessions[player] = nil
-		return { menu = menuPayload(player), packs = inventoryPayload(player) }
+		return { menu = menuPayload(player), shopEnabled = Config.ShopEnabled, packs = Config.ShopEnabled and inventoryPayload(player) or nil }
+
+	elseif (action == "equip" or action == "buy") and not Config.ShopEnabled then
+		return { error = "shop disabled" }
 
 	elseif action == "equip" then
 		-- arg = { id = packId, on = bool }
@@ -159,7 +163,7 @@ remote.OnServerInvoke = function(player, action, arg)
 		-- Consume equipped packs (one use each) and build the starting loadout.
 		local loadout = { items = {}, healthBonus = 0 }
 		local profile = profiles[player]
-		for packId in pairs(equipped[player] or {}) do
+		for packId in pairs(Config.ShopEnabled and equipped[player] or {}) do
 			local pack = packById[packId]
 			if pack and profile and (profile.inventory[packId] or 0) > 0 then
 				profile.inventory[packId] -= 1
@@ -195,6 +199,7 @@ end
 -- Robux purchases. Must be idempotent: Roblox may call this more than once
 -- for the same PurchaseId, and only a granted+saved purchase may return Granted.
 MarketplaceService.ProcessReceipt = function(info)
+	if not Config.ShopEnabled then return Enum.ProductPurchaseDecision.NotProcessedYet end
 	local player = Players:GetPlayerByUserId(info.PlayerId)
 	if not player then return Enum.ProductPurchaseDecision.NotProcessedYet end
 	local profile = profiles[player]

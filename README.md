@@ -21,7 +21,11 @@ hero, or didn't make it), with a short real-world safety lesson at the end.
 - **Risky** choices roll dice on the server; panic lowers your odds.
 - Endings you discover are saved per player (DataStore) and shown on the menu.
 
-## Starter packs (Robux)
+## Starter packs (Robux): currently OFF
+
+The shop is disabled by `ShopEnabled = false` in `src/shared/Config.lua`. Flip it
+to `true` once you have Developer Product ids. Until then there is no shop
+button, and the server ignores buy/equip and purchase receipts.
 
 `src/shared/Shop.lua` defines consumable packs: Supply Pack (water, food),
 Survival Knife, Extra HP (+50 starting health) and a bundle. A pack is used up
