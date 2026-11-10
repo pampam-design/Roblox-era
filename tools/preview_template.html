@@ -1,0 +1,44 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Survive the Disaster (preview)</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0e1018;color:#ebebf0;font:16px/1.4 Gotham,Montserrat,system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+#tint{position:fixed;inset:0;pointer-events:none;transition:background 1s;z-index:1}
+#app{position:relative;z-index:2;max-width:900px;margin:0 auto;padding:20px}
+h1{text-align:center;font-size:40px;margin:30px 0 6px}.sub{text-align:center;color:#aab;margin-bottom:24px}
+.grid{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+.card{width:270px;height:210px;background:#1c2130;border-radius:10px;padding:12px;cursor:pointer;border:0;color:inherit;text-align:left;font:inherit;position:relative}
+.card:hover{background:#262d42}.ic{font-size:34px}.ct{font-weight:700;font-size:20px}.tag{color:#f0aa5a;font-size:12px;margin:4px 0}.bl{color:#aab;font-size:13px}.en{position:absolute;bottom:10px;left:12px;color:#78c896;font-size:13px;font-weight:700}
+#panel{background:#161924;border-radius:16px;padding:16px;margin-top:10px}
+.top{display:flex;justify-content:space-between;align-items:center}.top b{font-size:24px}
+button{font:inherit;color:#f0f0f5;background:#282e3e;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:700}
+.bars{display:flex;gap:16px;margin:12px 0 6px}.bar{flex:1;height:22px;background:#0a0c12;border-radius:8px;position:relative;overflow:hidden}.bar i{position:absolute;inset:0 auto 0 0;transition:width .4s;border-radius:8px}.bar span{position:absolute;inset:0;text-align:center;font-size:13px;font-weight:700;line-height:22px}
+#items{color:#b4b9c8;font-size:14px;margin-bottom:10px}#story{font-size:20px;white-space:pre-wrap;min-height:170px;cursor:pointer}#note{color:#ffcd6e;min-height:24px;margin:8px 0}
+.ch{display:block;width:100%;text-align:left;background:#2c344a;margin-bottom:8px;padding:12px;font-weight:500;font-size:18px}.ch:hover{background:#38425e}.ch.lock{background:#1e212c;color:#6e7382;cursor:default}
+.end{background:#0e1018;border-radius:12px;padding:14px}.end h2{margin:0 0 8px}.row{display:flex;gap:8px;margin-top:10px}.row button{flex:1;padding:12px}
+@keyframes sh{0%,100%{transform:translate(0)}20%{transform:translate(-7px,4px)}40%{transform:translate(6px,-5px)}60%{transform:translate(-5px,-3px)}80%{transform:translate(5px,5px)}}.shake{animation:sh .25s 10}
+</style><div id=tint></div><div id=app></div>
+<script>
+const S=__DATA__;const T={none:'#0000',calm:'#0000',quake:'#5a46284a',flood:'#1450a04a',fire:'#e65a1450',wave:'#0a6eaa55',dark:'#00000099'};
+const EC={survived:'#5abe78',hero:'#fac83c',died:'#dc4646'},EL={survived:'SURVIVED',hero:'HERO ENDING',died:'DID NOT SURVIVE'};
+const found=JSON.parse(localStorage.found||'{}');let sc,st,tok=0;
+const $=s=>document.querySelector(s),app=$('#app');
+function menu(){tok++;$('#tint').style.background=T.none;app.innerHTML=`<h1>SURVIVE THE DISASTER</h1><div class=sub>Choose a situation. Every choice changes the story. Can you find every ending?</div><div class=grid>${S.map(s=>{const t=Object.values(s.nodes).filter(n=>n.ending).length,f=Object.keys(found[s.id]||{}).length;return `<button class=card onclick="start('${s.id}')"><div class=ic>${s.icon}</div><div class=ct>${s.title}</div><div class=tag>${s.place} / ${s.disaster} / ${s.difficulty}</div><div class=bl>${s.blurb}</div><div class=en>Endings found: ${f} / ${t}</div></button>`}).join('')}</div>`}
+function start(id){sc=S.find(s=>s.id==id);st={node:sc.start,health:100,calm:100,items:{},flags:{},note:'',steps:0};render()}
+const ok=r=>{if(!r)return[1];for(const i of r.items||[])if(!st.items[i])return[0,'Needs: '+i];for(const f of r.flags||[])if(!st.flags[f])return[0,'Not possible right now'];for(const f of r.notFlags||[])if(st.flags[f])return[0,'Not possible right now'];return[1]};
+const fx=e=>{if(!e)return;const c=(v,d)=>Math.max(0,Math.min(100,v+d));if(e.health)st.health=c(st.health,e.health);if(e.calm)st.calm=c(st.calm,e.calm);(e.give||[]).forEach(i=>st.items[i]=1);(e.take||[]).forEach(i=>delete st.items[i]);(e.set||[]).forEach(f=>st.flags[f]=1)};
+function pick(i){const n=sc.nodes[st.node],c=n.choices[i];if(!ok(c.requires)[0])return;st.steps++;st.note=c.note||'';fx(c.effects);let t=c.next;
+ if(c.chance){let p=c.chance.p;if(st.calm<=25)p-=.15;const b=c.chance.boostItems||(c.chance.boostItem?[c.chance.boostItem]:[]);if(b.some(x=>st.items[x]))p+=c.chance.boost||.2;p=Math.max(.05,Math.min(.95,p));if(Math.random()<p){t=c.chance.win;if(c.chance.winNote)st.note=c.chance.winNote}else{t=c.chance.lose;fx(c.chance.loseEffects);if(c.chance.loseNote)st.note=c.chance.loseNote}}
+ if(st.health<=0){t=sc.deathNode;st.note+=' Your injuries are too severe.'}st.node=t;render()}
+function render(){const n=sc.nodes[st.node],my=++tok;$('#tint').style.background=T[n.fx||'none'];
+ app.innerHTML=`<div id=panel><div class=top><b>${sc.title}</b><button onclick=menu()>Menu</button></div>
+ <div class=bars><div class=bar><i style="width:${st.health}%;background:#c84646"></i><span>Health</span></div><div class=bar><i style="width:${st.calm}%;background:#468cd2"></i><span>Calm</span></div></div>
+ <div id=items>Items: ${Object.keys(st.items).join(', ')||'none'}${st.calm<=25?'     PANICKING: risky moves are harder':''}</div>
+ <div id=story></div><div id=note>${st.note}</div><div id=ch></div></div>`;
+ if(n.fx=='quake'||n.fx=='wave'){const p=$('#panel');p.classList.add('shake')}
+ let i=0;const el=$('#story'),txt=n.text;const done=()=>{if(tok==my){el.textContent=txt;choices(n)}};
+ el.onclick=()=>{if(i<txt.length){i=1e9;done()}};
+ (function tick(){if(tok!=my)return;if(i>=txt.length)return done();i+=3;el.textContent=txt.slice(0,i);setTimeout(tick,12)})()}
+function choices(n){const box=$('#ch');if(n.ending){const e=n.ending;if(!found[sc.id])found[sc.id]={};found[sc.id][st.node]=1;localStorage.found=JSON.stringify(found);
+ box.innerHTML=`<div class=end><h2 style="color:${EC[e.kind]}">${EL[e.kind]}: ${e.title}</h2><div style="color:#c8cddc">What to remember: ${n.lesson||sc.lesson}</div><div style="color:#969bb0;margin-top:6px;font-size:14px">You made ${st.steps} decisions.</div><div class=row><button style="background:#32785a" onclick="start('${sc.id}')">Try a different path</button><button onclick=menu()>Back to menu</button></div></div>`;return}
+ box.innerHTML='';n.choices.forEach((c,i)=>{const [o,why]=ok(c.requires);if(!o&&c.hiddenIfLocked)return;const b=document.createElement('button');b.className='ch'+(o?'':' lock');b.textContent=c.text+(o?'':'   ['+why+']')+(c.chance&&o?'   (risky)':'');if(o)b.onclick=()=>pick(i);box.appendChild(b)})}
+menu();
+</script>
