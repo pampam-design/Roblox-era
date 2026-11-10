@@ -1,0 +1,71 @@
+# Survive the Disaster
+
+A branching-story Roblox game. Pick a situation, make decisions, and try to
+survive. Every scenario has multiple routes and several endings (survived,
+hero, or didn't make it), with a short real-world safety lesson at the end.
+
+| Scenario | Setting | Disaster | Endings |
+|---|---|---|---|
+| Shaking Ground | Classroom | Earthquake | 4 |
+| Rising Water | Subway | Flash flood | 4 |
+| Ember Night | Campsite | Wildfire | 4 |
+| The Sea Pulls Back | Beach resort | Tsunami | 4 |
+
+## How it plays
+
+- **Health** and **Calm** bars. Health 0 ends the story. Low Calm (25 or below)
+  makes risky choices harder.
+- **Items** you pick up unlock choices later (torch, belt, wet cloth...).
+- **Risky** choices roll dice on the server; panic lowers your odds.
+- Endings you discover are saved per player (DataStore) and shown on the menu.
+
+## Running it
+
+1. Install [Rojo](https://rojo.space) and run `rojo serve` in this folder.
+2. In Roblox Studio, open a new Baseplate and connect the Rojo plugin.
+3. Press Play. (Or `rojo build -o Disaster.rbxlx` and open the file.)
+4. To save endings in Studio, enable *Game Settings > Security > Enable Studio Access to API Services*.
+
+It is entirely UI-driven: no map is required. The player's character just
+stands on the baseplate behind the story screen.
+
+## Adding a scenario
+
+Create `src/shared/Scenarios/MyScenario.lua`, add it to
+`src/shared/Scenarios/init.lua`, and add its name to `tools/test_story.py`.
+
+```lua
+return {
+  id = "my_scenario", title = "...", place = "...", disaster = "...",
+  icon = "🌪", difficulty = "Easy", blurb = "...",
+  start = "start", deathNode = "death", lesson = "default lesson",
+  nodes = {
+    start = {
+      fx = "quake", -- none | calm | quake | flood | fire | wave | dark
+      text = "Story text...",
+      choices = {
+        { text = "Do the thing", next = "other_node",
+          effects = { health = -10, calm = 5, give = {"torch"}, set = {"flag"} },
+          note = "Shown after choosing" },
+        { text = "Use the torch", next = "x", requires = { items = {"torch"} },
+          hiddenIfLocked = true },
+        { text = "Gamble", next = "x", -- chance replaces next
+          chance = { p = 0.5, win = "good", lose = "bad", boostItem = "torch" } },
+      },
+    },
+    good = { text = "...", ending = { kind = "survived", title = "..." }, lesson = "..." },
+    death = { text = "...", ending = { kind = "died", title = "..." }, lesson = "..." },
+  },
+}
+```
+
+## Testing the story graph
+
+```
+pip install lupa
+python3 tools/test_story.py
+```
+
+Checks that every link resolves, every node is reachable, no choice list is a
+dead end, and fuzz-plays each scenario 20,000 times with the real engine to
+confirm every ending can be reached.
