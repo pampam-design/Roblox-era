@@ -19,6 +19,46 @@ for n in names:
     assert f"script.{n}" in init, f"{n} missing from Scenarios/init.lua"
 
 failed = False
+
+# 3D world data (markers/spots/anchors) must match the story graph.
+for sc in scenarios:
+    wname = sc.world
+    if not wname:
+        continue
+    wpath = root.parent / "server" / "Worlds" / f"{wname}.lua"
+    # the world file references Roblox globals only inside functions, so loading it is safe
+    world = lua.eval("""function(src, n)
+        local any; any = setmetatable({}, {__index = function() return any end, __call = function() return any end})
+        local env = setmetatable({game = {GetService = function() return any end}, Color3 = any, Enum = any, Vector3 = any, CFrame = any, Instance = any}, {__index = _G})
+        return assert(load(src, n, "t", env))()
+    end""")(wpath.read_text(), wname)
+    markers = set(world.markers.keys())
+    for m in markers:
+        if m not in world.labels: print("WORLD", wname, "marker without label", m); failed = True
+    for node, spot in world.nodeSpots.items():
+        if node not in sc.nodes: print("WORLD", wname, "nodeSpots unknown node", node); failed = True
+        if spot not in world.spots: print("WORLD", wname, "unknown spot", spot); failed = True
+    for node, anchors in world.anchors.items():
+        if node not in sc.nodes: print("WORLD", wname, "anchors unknown node", node); failed = True; continue
+        nchoices = len(list(sc.nodes[node].choices.keys())) if sc.nodes[node].choices else 0
+        for idx, marker in anchors.items():
+            if idx > nchoices: print("WORLD", wname, node, "anchor index out of range", idx); failed = True
+            if marker not in markers: print("WORLD", wname, node, "unknown marker", marker); failed = True
+        if len(set(anchors.values())) != len(list(anchors.values())) and False: pass
+    # every non-ending node with choices should place at least one choice or be a deliberate button-only node
+    for nid, node in sc.nodes.items():
+        if node.choices:
+            n_anch = len(list((world.anchors[nid] or {}).keys())) if world.anchors[nid] else 0
+            if n_anch == 0:
+                print(f"  note: {wname}/{nid} has no placed choices (shown as buttons)")
+    print(f"{sc.id:10s} world ok: {len(markers)} markers, {len(list(world.spots.keys()))} spots")
+
+# hold times must be positive numbers
+for sc in scenarios:
+    for nid, node in sc.nodes.items():
+        for c in (node.choices.values() if node.choices else []):
+            if c.hold is not None and not (isinstance(c.hold, (int, float)) and 0 < c.hold <= 10):
+                print("BAD HOLD", sc.id, nid, c.hold); failed = True
 for sc in scenarios:
     problems = list(Engine.validate(sc).values())
     for p in problems:

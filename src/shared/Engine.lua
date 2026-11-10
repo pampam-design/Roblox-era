@@ -118,6 +118,7 @@ function Engine.view(scenario, state)
 				locked = not ok,
 				lockReason = why,
 				risky = choice.chance ~= nil,
+				hold = choice.hold,
 			}
 		end
 	end

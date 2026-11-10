@@ -80,7 +80,7 @@ return {
 			fx = "wave",
 			text = "The path is muddy and steep. Mia's sandals slide. You boost her up by the arms while a local man reaches down from above. The roar rises behind you. Water surges up the lower slope, swallowing the road and the car park.",
 			choices = {
-				{ text = "Keep climbing. Higher, higher.", next = "hilltop", effects = { health = -5 } },
+				{ text = "Keep climbing. Higher, higher.", next = "hilltop", hold = 3, effects = { health = -5 } },
 				{ text = "Stop and look back to see how bad it is.", next = "hilltop_late", effects = { calm = -10 } },
 			},
 		},

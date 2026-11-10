@@ -19,7 +19,7 @@
     },
     "Lighting": {
       "$className": "Lighting",
-      "$properties": { "ClockTime": 0, "Brightness": 0 }
+      "$properties": { "ClockTime": 14, "Brightness": 2 }
     }
   }
 }

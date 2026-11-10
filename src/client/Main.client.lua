@@ -142,10 +142,12 @@ local panel = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.94, 0.94),
 	BackgroundColor3 = Color3.fromRGB(22, 25, 36), BackgroundTransparency = 0.05, ZIndex = 3, Parent = game_,
 }, { corner(16), pad(16), make("UISizeConstraint", { MaxSize = Vector2.new(900, 4000) }) })
-local PANEL_HOME = panel.Position
+local PANEL_HOME = panel.Position -- reassigned by setLayout
 
 local title = label({ Text = "", Font = FONT_BOLD, TextSize = 26, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -110, 0, 36), ZIndex = 4, Parent = panel })
 local quit = button({ Text = "Menu", TextSize = 18, Size = UDim2.fromOffset(90, 34), Position = UDim2.new(1, -90, 0, 0), ZIndex = 4, Parent = panel })
+
+local buttonsToggle = button({ Text = "Buttons: OFF", TextSize = 15, Size = UDim2.fromOffset(130, 34), Position = UDim2.new(1, -230, 0, 0), ZIndex = 4, Visible = false, Parent = panel })
 
 local function bar(name, y, color)
 	local holder = make("Frame", { Size = UDim2.new(0.5, -8, 0, 22), Position = UDim2.new(name == "Calm" and 0.5 or 0, name == "Calm" and 8 or 0, 0, y), BackgroundColor3 = Color3.fromRGB(10, 12, 18), ZIndex = 4, Parent = panel }, { corner(8) })
@@ -180,11 +182,51 @@ local typeToken = 0
 local fxToken = 0
 local skipConn = nil
 
-local function setTint(fx)
-	local t = TINTS[fx] or TINTS.none
-	TweenService:Create(tint, TweenInfo.new(0.8), { BackgroundColor3 = t[1], BackgroundTransparency = t[2] }):Play()
+local stageMode = false   -- story is playing inside a 3D stage
+local buttonsMode = false -- in stage mode: also allow clicking choices
+
+local function setLayout(world)
+	stageMode = world
+	root.BackgroundTransparency = world and 1 or 0
+	buttonsToggle.Visible = world
+	if world then
+		panel.AnchorPoint = Vector2.new(0.5, 1)
+		PANEL_HOME = UDim2.fromScale(0.5, 0.985)
+		panel.Size = UDim2.fromScale(0.94, 0.5)
+		panel.BackgroundTransparency = 0.12
+		storyScroll.Size = UDim2.new(1, 0, 0, 110)
+		noteLabel.Size = UDim2.new(1, 0, 0, 26)
+		noteLabel.Position = UDim2.new(0, 0, 0, 214)
+		choiceScroll.Position = UDim2.new(0, 0, 0, 244)
+		choiceScroll.Size = UDim2.new(1, 0, 1, -246)
+		storyText.TextSize = 18
+	else
+		panel.AnchorPoint = Vector2.new(0.5, 0.5)
+		PANEL_HOME = UDim2.fromScale(0.5, 0.5)
+		panel.Size = UDim2.fromScale(0.94, 0.94)
+		panel.BackgroundTransparency = 0.05
+		storyScroll.Size = UDim2.new(1, 0, 0.4, 0)
+		noteLabel.Size = UDim2.new(1, 0, 0, 40)
+		noteLabel.Position = UDim2.new(0, 0, 0.4, 104)
+		choiceScroll.Position = UDim2.new(0, 0, 0.4, 148)
+		choiceScroll.Size = UDim2.new(1, 0, 0.6, -150)
+		storyText.TextSize = 21
+	end
+	panel.Position = PANEL_HOME
 end
 
+local function setTint(fx)
+	local t = TINTS[fx] or TINTS.none
+	local transparency = stageMode and (1 - (1 - t[2]) * 0.5) or t[2]
+	TweenService:Create(tint, TweenInfo.new(0.8), { BackgroundColor3 = t[1], BackgroundTransparency = transparency }):Play()
+end
+
+local function humanoid()
+	local char = player.Character
+	return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+-- UI mode: shake the story panel. Stage mode: shake the 3D camera.
 local function shake(seconds)
 	fxToken += 1
 	local mine = fxToken
@@ -192,10 +234,19 @@ local function shake(seconds)
 		local t0 = os.clock()
 		while fxToken == mine and os.clock() - t0 < seconds do
 			local k = 1 - (os.clock() - t0) / seconds
-			panel.Position = PANEL_HOME + UDim2.fromOffset(math.random(-8, 8) * k, math.random(-8, 8) * k)
+			if stageMode then
+				local hum = humanoid()
+				if hum then hum.CameraOffset = Vector3.new(math.random(-10, 10) / 10 * k, math.random(-10, 10) / 10 * k, 0) end
+			else
+				panel.Position = PANEL_HOME + UDim2.fromOffset(math.random(-8, 8) * k, math.random(-8, 8) * k)
+			end
 			RunService.RenderStepped:Wait()
 		end
-		if fxToken == mine then panel.Position = PANEL_HOME end
+		if fxToken == mine then
+			panel.Position = PANEL_HOME
+			local hum = humanoid()
+			if hum then hum.CameraOffset = Vector3.zero end
+		end
 	end)
 end
 
@@ -240,35 +291,91 @@ local function showEnding(view)
 	back.Activated:Connect(function() showMenu() end)
 end
 
+local function sendChoice(index)
+	if busy then return end
+	busy = true
+	local v = remote:InvokeServer("choose", index)
+	busy = false
+	if v and not v.error then
+		present(v)
+	elseif v and v.error == "hold longer" then
+		noteLabel.Text = "You let go too early. Hold the button for the full time."
+	end
+end
+
+-- Press-and-hold: the fill bar grows over c.hold seconds; releasing early cancels.
+-- The server re-checks the elapsed time, so this is not just cosmetic.
+local function attachHold(b, c)
+	local fill = make("Frame", {
+		Position = UDim2.fromOffset(-12, -12), Size = UDim2.new(0, 0, 1, 24), BackgroundColor3 = Color3.fromRGB(110, 190, 140),
+		BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 6, Parent = b,
+	}, { corner(10) })
+	local holding = false
+	b.InputBegan:Connect(function(input)
+		local t = input.UserInputType
+		if t ~= Enum.UserInputType.MouseButton1 and t ~= Enum.UserInputType.Touch then return end
+		if holding or busy then return end
+		holding = true
+		local startAt = os.clock()
+		task.spawn(function() remote:InvokeServer("holdbegin", c.index) end)
+		local conn
+		local function stop(done)
+			holding = false
+			if conn then conn:Disconnect() end
+			if done then sendChoice(c.index) else fill.Size = UDim2.new(0, 0, 1, 24) end
+		end
+		conn = RunService.RenderStepped:Connect(function()
+			if not holding then return end
+			local a = math.min((os.clock() - startAt) / c.hold, 1)
+			fill.Size = UDim2.new(a, 24 * a, 1, 24)
+			if a >= 1 then stop(true) end
+		end)
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End and holding then stop(false) end
+		end)
+	end)
+end
+
 local function showChoices(view)
 	clearChoices()
+	if stageMode then
+		make("TextLabel", {
+			Text = buttonsMode and "Tap an option, or walk to its glowing orb." or "Walk to a glowing orb and press the key shown. Some actions need you to hold it.",
+			BackgroundTransparency = 1, Font = FONT, TextSize = 15, TextColor3 = Color3.fromRGB(150, 155, 170), TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -8, 0, 20), LayoutOrder = 0, ZIndex = 5, Parent = choiceScroll,
+		})
+	end
 	for _, c in ipairs(view.choices) do
 		local locked = c.locked
+		local hintOnly = stageMode and c.inWorld and not buttonsMode
 		local text = c.text
+		if c.inWorld and c.key then text = ("[%s at %s]  %s"):format(c.key, c.place, text) end
+		if c.hold then text = text .. ("   (hold %gs)"):format(c.hold) end
 		if locked then text = text .. "   [" .. (c.lockReason or "locked") .. "]" end
 		if c.risky and not locked then text = text .. "   (risky)" end
+		local dim = locked or hintOnly
 		local b = button({
-			Text = text, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left,
+			Text = text, TextSize = stageMode and 16 or 19, TextXAlignment = Enum.TextXAlignment.Left,
 			Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundColor3 = locked and Color3.fromRGB(30, 33, 44) or Color3.fromRGB(44, 52, 74),
-			TextColor3 = locked and Color3.fromRGB(110, 115, 130) or Color3.fromRGB(240, 240, 245),
-			AutoButtonColor = not locked, LayoutOrder = c.index, ZIndex = 5, Parent = choiceScroll,
+			BackgroundColor3 = dim and Color3.fromRGB(30, 33, 44) or Color3.fromRGB(44, 52, 74),
+			TextColor3 = dim and Color3.fromRGB(150, 155, 170) or Color3.fromRGB(240, 240, 245),
+			AutoButtonColor = not dim, Active = not hintOnly, LayoutOrder = c.index, ZIndex = 5, Parent = choiceScroll,
 		})
+		if locked then b.TextColor3 = Color3.fromRGB(110, 115, 130) end
 		pad(12).Parent = b
-		if not locked then
-			b.Activated:Connect(function()
-				if busy then return end
-				busy = true
-				local v = remote:InvokeServer("choose", c.index)
-				busy = false
-				if v and not v.error then present(v) end
-			end)
+		if not dim then
+			if c.hold then
+				attachHold(b, c)
+			else
+				b.Activated:Connect(function() sendChoice(c.index) end)
+			end
 		end
 	end
 end
 
 local function render(view)
 	currentView = view
+	setLayout(view.stage == true and not view.ending)
 	title.Text = view.title
 	noteLabel.Text = view.note or ""
 	updateStats(view)
@@ -312,6 +419,17 @@ function present(view)
 	render(view)
 end
 
+buttonsToggle.Activated:Connect(function()
+	buttonsMode = not buttonsMode
+	buttonsToggle.Text = buttonsMode and "Buttons: ON" or "Buttons: OFF"
+	if currentView and not currentView.ending and storyText.MaxVisibleGraphemes == -1 then showChoices(currentView) end
+end)
+
+-- Choices made at a 3D prompt arrive here instead of as an InvokeServer reply.
+ReplicatedStorage:WaitForChild("StoryUpdate").OnClientEvent:Connect(function(view)
+	present(view)
+end)
+
 local function buildCards(list)
 	for _, child in ipairs(cards:GetChildren()) do
 		if child:IsA("TextButton") then child:Destroy() end
@@ -339,7 +457,9 @@ end
 function showMenu()
 	typeToken += 1
 	fxToken += 1
-	panel.Position = PANEL_HOME
+	setLayout(false)
+	local hum = humanoid()
+	if hum then hum.CameraOffset = Vector3.zero end
 	setTint("none")
 	game_.Visible = false
 	menu.Visible = true

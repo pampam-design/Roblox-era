@@ -12,6 +12,9 @@ local Engine = require(Shared:WaitForChild("Engine"))
 local Scenarios = require(Shared:WaitForChild("Scenarios"))
 local Shop = require(Shared:WaitForChild("Shop"))
 local Config = require(Shared:WaitForChild("Config"))
+local Lighting = game:GetService("Lighting")
+local Stage = require(script.Parent:WaitForChild("Stage"))
+local Worlds = script.Parent:WaitForChild("Worlds")
 
 local packById = {}
 for _, pack in ipairs(Shop) do packById[pack.id] = pack end
@@ -19,6 +22,9 @@ local packByProduct = {}
 for _, pack in ipairs(Shop) do
 	if pack.productId ~= 0 then packByProduct[pack.productId] = pack end
 end
+
+Lighting.Ambient = Color3.fromRGB(95, 95, 110) -- indoor stages are lit by lamps plus this
+Lighting.OutdoorAmbient = Color3.fromRGB(110, 110, 120)
 
 -- Fail loudly at server start if a scenario graph is broken.
 local byId = {}
@@ -33,6 +39,10 @@ local remote = Instance.new("RemoteFunction")
 remote.Name = "StoryRemote"
 remote.Parent = ReplicatedStorage
 
+local storyUpdate = Instance.new("RemoteEvent")
+storyUpdate.Name = "StoryUpdate"
+storyUpdate.Parent = ReplicatedStorage
+
 local inventoryChanged = Instance.new("RemoteEvent")
 inventoryChanged.Name = "InventoryChanged"
 inventoryChanged.Parent = ReplicatedStorage
@@ -43,6 +53,7 @@ local sessions = {} -- [Player] = engine state
 local profiles = {} -- [Player] = { endings = {...}, inventory = {[packId]=count}, receipts = {[id]=true} }
 local equipped = {} -- [Player] = { [packId] = true }  (this visit only)
 local lastCall = {} -- [Player] = os.clock() of last request
+local holds = {} -- [Player] = { index, at } for press-and-hold buttons in the UI
 
 local function loadProfile(player)
 	local ok, data = pcall(function()
@@ -122,6 +133,46 @@ local function recordEnding(player, scenarioId, nodeId)
 	end
 end
 
+-- Builds the view for the current node, placing choices in the 3D stage if there is one.
+local applyChoice
+local function buildView(player, scenario, state)
+	local view = Engine.view(scenario, state)
+	if Stage.active(player) then
+		Stage.apply(player, view, function(who, index, nodeId)
+			-- Prompt path: ignore stale prompts from an earlier node.
+			local st = sessions[who]
+			if not st or st.node ~= nodeId then return end
+			local result = applyChoice(who, index, "world")
+			if result and not result.error then storyUpdate:FireClient(who, result) end
+		end)
+	end
+	return view
+end
+
+-- via = "ui" (button; hold time is verified here) or "world" (ProximityPrompt; Roblox enforced the hold).
+function applyChoice(player, index, via)
+	local state = sessions[player]
+	if not state or type(index) ~= "number" then return { error = "no active story" } end
+	local scenario = byId[state.scenarioId]
+	index = math.floor(index)
+	local choice = scenario.nodes[state.node].choices and scenario.nodes[state.node].choices[index]
+	if choice and choice.hold and via == "ui" then
+		local h = holds[player]
+		holds[player] = nil
+		if not h or h.index ~= index or os.clock() - h.at < choice.hold - 0.4 then
+			return { error = "hold longer" }
+		end
+	end
+	local ok, why = Engine.choose(scenario, state, index)
+	if not ok then return { error = why } end
+	local view = buildView(player, scenario, state)
+	if view.ending then
+		recordEnding(player, scenario.id, state.node)
+		view.ending.steps = state.steps
+	end
+	return view
+end
+
 remote.OnServerInvoke = function(player, action, arg)
 	-- Basic rate limit so a client cannot spam the server.
 	local now = os.clock()
@@ -132,6 +183,8 @@ remote.OnServerInvoke = function(player, action, arg)
 
 	if action == "menu" then
 		sessions[player] = nil
+		holds[player] = nil
+		Stage.leave(player, true)
 		return { menu = menuPayload(player), shopEnabled = Config.ShopEnabled, packs = Config.ShopEnabled and inventoryPayload(player) or nil }
 
 	elseif (action == "equip" or action == "buy") and not Config.ShopEnabled then
@@ -178,20 +231,20 @@ remote.OnServerInvoke = function(player, action, arg)
 		end
 		local state = Engine.new(scenario, loadout)
 		sessions[player] = state
-		return Engine.view(scenario, state)
+		holds[player] = nil
+		Stage.leave(player, false)
+		local worldModule = scenario.world and Worlds:FindFirstChild(scenario.world)
+		if worldModule then
+			if not Stage.enter(player, require(worldModule)) then warn("[Story] no free stage slot") end
+		end
+		return buildView(player, scenario, state)
+
+	elseif action == "holdbegin" then
+		if type(arg) == "number" then holds[player] = { index = math.floor(arg), at = os.clock() } end
+		return { ok = true }
 
 	elseif action == "choose" then
-		local state = sessions[player]
-		if not state or type(arg) ~= "number" then return { error = "no active story" } end
-		local scenario = byId[state.scenarioId]
-		local ok, why = Engine.choose(scenario, state, math.floor(arg))
-		if not ok then return { error = why } end
-		local view = Engine.view(scenario, state)
-		if view.ending then
-			recordEnding(player, scenario.id, state.node)
-			view.ending.steps = state.steps
-		end
-		return view
+		return applyChoice(player, arg, "ui")
 	end
 	return { error = "bad action" }
 end
@@ -222,12 +275,23 @@ MarketplaceService.ProcessReceipt = function(info)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
+-- Put the player back on their stage if they respawn mid-story.
+local function watchCharacter(player)
+	player.CharacterAdded:Connect(function()
+		task.wait(0.3)
+		Stage.recall(player)
+	end)
+end
+Players.PlayerAdded:Connect(watchCharacter)
+for _, player in ipairs(Players:GetPlayers()) do watchCharacter(player) end
+Stage.setup()
+
 Players.PlayerAdded:Connect(loadProfile)
 for _, player in ipairs(Players:GetPlayers()) do task.spawn(loadProfile, player) end
 
 Players.PlayerRemoving:Connect(function(player)
 	saveProfile(player)
-	sessions[player], profiles[player], equipped[player], lastCall[player] = nil, nil, nil, nil
+	sessions[player], profiles[player], equipped[player], lastCall[player], holds[player] = nil, nil, nil, nil, nil
 end)
 
 game:BindToClose(function()

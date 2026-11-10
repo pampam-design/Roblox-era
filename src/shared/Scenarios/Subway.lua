@@ -27,7 +27,7 @@ return {
 			fx = "flood",
 			text = "Halfway up, the water hits your knees and shoves you backward. A man grabs the rail beside you and shouts that the street is flooded too. It is knee-deep and brown, and it is full of debris.\n\nYou slip. The current drags your legs out from under you.",
 			choices = {
-				{ text = "Grab the handrail with both hands and hold on.", next = "stairs_hold", chance = { p = 0.6, win = "stairs_hold", lose = "washed_back", loseEffects = { health = -30 } }, note = "Your grip is slipping..." },
+				{ text = "Grab the handrail with both hands and hang on.", next = "stairs_hold", hold = 5, chance = { p = 0.6, win = "stairs_hold", lose = "washed_back", loseEffects = { health = -30 } }, note = "Your grip is slipping..." },
 				{ text = "Let go and swim for the platform.", next = "washed_back", effects = { health = -30 } },
 			},
 		},
@@ -108,7 +108,7 @@ return {
 			fx = "dark",
 			text = "The ladder climbs for what feels like forever. Halfway up, the one above you freezes. The rung is rusted through and swinging loose. The water is rising right behind you.",
 			choices = {
-				{ text = "Swing across to the next ladder and pull yourself up.", next = "hatch", chance = { p = 0.55, win = "hatch", lose = "hatch", loseEffects = { health = -25 }, winNote = "You catch the rung and haul yourself up.", loseNote = "You slip and crash into the rungs, scraping both arms." } },
+				{ text = "Swing across to the next ladder and pull yourself up.", next = "hatch", hold = 3, chance = { p = 0.55, win = "hatch", lose = "hatch", loseEffects = { health = -25 }, winNote = "You catch the rung and haul yourself up.", loseNote = "You slip and crash into the rungs, scraping both arms." } },
 				{ text = "Use the belt to bind the broken rung.", next = "hatch", requires = { items = { "belt" } }, note = "It holds, barely." },
 				{ text = "Keep climbing on the damaged ladder.", next = "death", effects = { health = -100 }, note = "The rung gives way." },
 			},

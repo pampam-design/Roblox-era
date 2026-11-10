@@ -39,6 +39,10 @@ function render(){const n=sc.nodes[st.node],my=++tok;$('#tint').style.background
  (function tick(){if(tok!=my)return;if(i>=txt.length)return done();i+=3;el.textContent=txt.slice(0,i);setTimeout(tick,12)})()}
 function choices(n){const box=$('#ch');if(n.ending){const e=n.ending;if(!found[sc.id])found[sc.id]={};found[sc.id][st.node]=1;localStorage.found=JSON.stringify(found);
  box.innerHTML=`<div class=end><h2 style="color:${EC[e.kind]}">${EL[e.kind]}: ${e.title}</h2><div style="color:#c8cddc">What to remember: ${n.lesson||sc.lesson}</div><div style="color:#969bb0;margin-top:6px;font-size:14px">You made ${st.steps} decisions.</div><div class=row><button style="background:#32785a" onclick="start('${sc.id}')">Try a different path</button><button onclick=menu()>Back to menu</button></div></div>`;return}
- box.innerHTML='';n.choices.forEach((c,i)=>{const [o,why]=ok(c.requires);if(!o&&c.hiddenIfLocked)return;const b=document.createElement('button');b.className='ch'+(o?'':' lock');b.textContent=c.text+(o?'':'   ['+why+']')+(c.chance&&o?'   (risky)':'');if(o)b.onclick=()=>pick(i);box.appendChild(b)})}
+ box.innerHTML='';n.choices.forEach((c,i)=>{const [o,why]=ok(c.requires);if(!o&&c.hiddenIfLocked)return;const b=document.createElement('button');b.className='ch'+(o?'':' lock');b.textContent=c.text+(c.hold?`   (hold ${c.hold}s)`:'')+(o?'':'   ['+why+']')+(c.chance&&o?'   (risky)':'');
+ if(o&&c.hold){let raf,t0;const end=()=>{cancelAnimationFrame(raf);b.style.background=''};
+  b.onpointerdown=e=>{e.preventDefault();t0=performance.now();const f=()=>{const a=Math.min((performance.now()-t0)/(c.hold*1000),1);b.style.background=`linear-gradient(90deg,#4a9a70 ${a*100}%,#2c344a ${a*100}%)`;if(a>=1){end();pick(i)}else raf=requestAnimationFrame(f)};f()};
+  b.onpointerup=b.onpointerleave=b.onpointercancel=end}
+ else if(o)b.onclick=()=>pick(i);box.appendChild(b)})}
 menu();
 </script>

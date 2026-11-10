@@ -40,6 +40,27 @@ Design rule: **no ending is locked behind a pack.** Packs only add shortcuts and
 a bigger safety margin. `tools/test_story.py` checks that every ending is
 reachable with zero packs. Keep it that way if you add content.
 
+## 3D stages and hold actions
+
+Scenarios can have a walkable 3D stage (`world = "Classroom"` in the scenario,
+builder in `src/server/Worlds/`). Currently only **Shaking Ground** has one;
+the others are still the plain story screen.
+
+- Each player gets a private copy of the set, far from other players.
+- Story choices become `ProximityPrompt`s at glowing orbs you walk up to
+  (keys E / F / R / T). The story text sits in a panel at the bottom.
+- Moving to a new story step can teleport you (e.g. into the corridor) and
+  triggers disaster effects: camera shake, falling ceiling tiles, lights out.
+- **Hold actions:** a choice with `hold = seconds` must be held, e.g. hanging
+  on to a railing. In the 3D stage this is the prompt's hold timer; in the
+  plain story screen it is a press-and-hold button, and the server checks the
+  elapsed time. Releasing early cancels it.
+- "Buttons: ON" in the panel lets you click options instead of walking to them
+  (a fallback if a prompt is awkward to reach).
+
+`python3 tools/plan_view.py Classroom out.png` draws a top-down floor plan from
+the real build code to sanity-check the layout without opening Studio.
+
 ## Running it
 
 1. Install [Rojo](https://rojo.space) and run `rojo serve` in this folder.

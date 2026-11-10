@@ -8,6 +8,7 @@ return {
 	icon = "🏫",
 	difficulty = "Easy",
 	blurb = "Second floor, Room 204. Period 3 maths. The floor starts to move.",
+	world = "Classroom", -- 3D stage in src/server/Worlds/Classroom.lua
 	start = "start",
 	deathNode = "death",
 	lesson = "In an earthquake: Drop, Cover, and Hold On. Stay put until the shaking stops.",
@@ -16,7 +17,7 @@ return {
 			fx = "calm",
 			text = "Period 3, Room 204. Ms. Okafor is mid-sentence about quadratic equations when your pencil rolls off the desk. Then the lights sway. A low rumble rises through the floor and the windows begin to rattle.\n\n\"Is that a truck?\" someone whispers. Then the whole room lurches sideways.",
 			choices = {
-				{ text = "Drop under your desk, grab a leg and hold on.", next = "under_desk", effects = { calm = -5 } },
+				{ text = "Drop under your desk, grab a leg and hold on.", next = "under_desk", hold = 3, effects = { calm = -5 } },
 				{ text = "Sprint for the door before the roof comes down.", next = "run_door", effects = { health = -25, calm = -20 }, note = "You get knocked into the doorframe by the stampede." },
 				{ text = "Stand in the doorway. You heard that's the safest spot.", next = "doorway", effects = { health = -15, calm = -10 }, note = "The door slams back and forth, hitting your shoulder." },
 			},
@@ -28,7 +29,7 @@ return {
 			choices = {
 				{ text = "Reach out and pull Jay under your desk.", next = "shaking_stops", effects = { health = -10, calm = -10 }, note = "A ceiling tile clips your arm, but Jay is under cover." },
 				{ text = "Shout at Jay to get down, but stay put.", next = "shaking_stops", chance = { p = 0.5, win = "shaking_stops", lose = "shaking_stops", loseEffects = { calm = -15 }, winNote = "Jay snaps out of it and ducks under his own desk just in time.", loseNote = "Jay does not move. You watch the fixture fall near him and it is hard to look away." } },
-				{ text = "Hold on and keep your head down. Survive first.", next = "shaking_stops", effects = { calm = -10 } },
+				{ text = "Hold on and keep your head down. Survive first.", next = "shaking_stops", hold = 3, effects = { calm = -10 } },
 			},
 		},
 
@@ -99,7 +100,7 @@ return {
 			fx = "dark",
 			text = "You grip the rail and take it one step at a time. On the third landing, your foot finds a gap where the stairs have shifted. You stumble and wrench your ankle, but catch the rail.",
 			choices = {
-				{ text = "Grit your teeth and keep going.", next = "outside_safe", effects = { health = -20 }, note = "Your ankle throbs, but you make it down." },
+				{ text = "Grit your teeth and keep going.", next = "outside_safe", hold = 2.5, effects = { health = -20 }, note = "Your ankle throbs, but you make it down." },
 				{ text = "Sit and wait for help.", next = "aftershock" },
 			},
 		},
@@ -108,7 +109,7 @@ return {
 			fx = "quake",
 			text = "Twenty minutes later, an aftershock hits. Plaster rains down in the corridor. The group at the blocked stairs scatters.",
 			choices = {
-				{ text = "Drop, cover, and hold on right where you are.", next = "outside_safe", effects = { calm = -5 } },
+				{ text = "Drop, cover, and hold on right where you are.", next = "outside_safe", hold = 4, effects = { calm = -5 } },
 				{ text = "Run toward the back stairs.", next = "outside_safe", chance = { p = 0.5, win = "outside_safe", lose = "death", loseEffects = { health = -60 } }, note = "Running during shaking is risky..." },
 			},
 		},
