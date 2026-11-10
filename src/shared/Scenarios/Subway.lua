@@ -99,6 +99,7 @@ return {
 			choices = {
 				{ text = "Lift the toddler onto the ladder first.", next = "shaft", effects = { calm = 5, health = -10, set = { "helped_child" } }, note = "The mother sobs thanks as you boost her kid up." },
 				{ text = "Push to the front. You need to get out now.", next = "shaft", effects = { calm = -15 }, note = "Others shout at you, but you are up the ladder." },
+				{ text = "Cut a strap from a bag with your knife for a rope.", next = "shaft", requires = { items = { "knife" } }, hiddenIfLocked = true, effects = { give = { "belt" }, calm = 5 } },
 				{ text = "Look for something to use as a rope.", next = "shaft", effects = { give = { "belt" } }, note = "You pull a strap from a bag." },
 			},
 		},

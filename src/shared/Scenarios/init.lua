@@ -6,4 +6,6 @@ return {
 	require(script.Subway),
 	require(script.Wildfire),
 	require(script.Tsunami),
+	require(script.Zombies),
+	require(script.Nuclear),
 }

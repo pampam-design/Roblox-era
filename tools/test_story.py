@@ -11,7 +11,7 @@ lua = LuaRuntime(unpack_returned_tuples=True)
 load = lambda p: lua.execute("return function(src, name) return assert(loadstring and loadstring(src, name) or load(src, name))() end")(p.read_text(), p.name)
 
 Engine = load(root / "Engine.lua")
-names = ["Classroom", "Subway", "Wildfire", "Tsunami"]
+names = ["Classroom", "Subway", "Wildfire", "Tsunami", "Zombies", "Nuclear"]
 scenarios = [load(root / "Scenarios" / f"{n}.lua") for n in names]
 
 init = (root / "Scenarios" / "init.lua").read_text()
@@ -26,12 +26,16 @@ for sc in scenarios:
 
     endings = {}
     rng = random.Random(1)
-    for _ in range(20000):
-        st = Engine.new(sc)
+    for run in range(20000):
+        # Odd runs use the full paid bundle, even runs use nothing. Endings are
+        # counted from the no-pack runs only, so "reached" means reachable for free.
+        paid = run % 2 == 1
+        st = Engine.new(sc, lua.table_from({"items": lua.table_from(["water", "food", "knife"]), "healthBonus": 50}) if paid else None)
         for _step in range(200):
             v = Engine.view(sc, st)
             if v.ending:
-                endings[v.nodeId] = v.ending.kind
+                if not paid:
+                    endings[v.nodeId] = v.ending.kind
                 break
             opts = [c for c in v.choices.values() if not c.locked]
             if not opts:

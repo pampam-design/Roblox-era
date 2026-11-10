@@ -86,6 +86,7 @@ return {
 			fx = "fire",
 			text = "The lake is cool and black and calm. You wade in up to your neck. Behind you the campsite is a wall of flame. Heat scorches your back, and the air is thick with smoke. A bandana and a water bottle would be good right now.",
 			choices = {
+				{ text = "Soak your shirt with your water bottle first, then wade in.", next = "lake_night", requires = { items = { "water" } }, hiddenIfLocked = true, effects = { give = { "wet cloth" }, calm = 10, health = 10 } },
 				{ text = "Wet your shirt and breathe through it.", next = "lake_night", effects = { give = { "wet cloth" }, calm = 5 } },
 				{ text = "Duck under whenever the heat surges.", next = "lake_night", effects = { calm = -5, health = -5 } },
 				{ text = "Swim across to the far shore, away from the fire.", next = "far_shore", effects = { calm = -10 } },

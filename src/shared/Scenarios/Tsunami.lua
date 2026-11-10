@@ -99,6 +99,7 @@ return {
 			choices = {
 				{ text = "Help her up the stairs, one step at a time.", next = "roof", effects = { health = -10, calm = -5, set = { "helped_woman" } } },
 				{ text = "Keep climbing. The wave is coming.", next = "roof", effects = { calm = -10 } },
+				{ text = "Eat your snack bar for energy and carry her up.", next = "roof", requires = { items = { "food" } }, hiddenIfLocked = true, effects = { calm = 5, set = { "helped_woman" } } },
 				{ text = "Stop at the third floor. That is high enough.", next = "death", effects = { health = -100 }, note = "The wave tops three storeys." },
 			},
 		},

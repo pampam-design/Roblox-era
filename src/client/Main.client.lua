@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("StoryRemote")
 
+local busy = false
 local FONT = Enum.Font.GothamMedium
 local FONT_BOLD = Enum.Font.GothamBold
 
@@ -89,6 +90,51 @@ local cards = make("ScrollingFrame", {
 	pad(8),
 })
 
+-- Shop ---------------------------------------------------------------
+local shopButton = button({ Text = "Starter Packs", TextSize = 18, Size = UDim2.fromOffset(160, 40), Position = UDim2.new(1, -180, 0, 48), BackgroundColor3 = Color3.fromRGB(190, 130, 30), ZIndex = 4, Parent = menu })
+local shop = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(560, 440),
+	BackgroundColor3 = Color3.fromRGB(22, 25, 36), Visible = false, ZIndex = 20, Parent = gui,
+}, { corner(16), pad(16) })
+label({ Text = "Starter Packs", Font = FONT_BOLD, TextSize = 28, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -80, 0, 34), ZIndex = 21, Parent = shop })
+label({ Text = "Packs are used up by one run. Every ending can be reached without them.", TextSize = 15, TextColor3 = Color3.fromRGB(170, 175, 190), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 38), ZIndex = 21, Parent = shop })
+local shopClose = button({ Text = "X", TextSize = 18, Size = UDim2.fromOffset(40, 34), Position = UDim2.new(1, -40, 0, 0), ZIndex = 21, Parent = shop })
+local shopList = make("ScrollingFrame", {
+	Size = UDim2.new(1, 0, 1, -70), Position = UDim2.fromOffset(0, 68), BackgroundTransparency = 1, BorderSizePixel = 0,
+	ScrollBarThickness = 4, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 21, Parent = shop,
+}, { make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }) })
+
+local function buildShop(packs)
+	for _, child in ipairs(shopList:GetChildren()) do
+		if child:IsA("Frame") then child:Destroy() end
+	end
+	for i, p in ipairs(packs) do
+		local row = make("Frame", { Size = UDim2.new(1, -8, 0, 84), BackgroundColor3 = Color3.fromRGB(32, 37, 52), LayoutOrder = i, ZIndex = 22, Parent = shopList }, { corner(10), pad(10) })
+		label({ Text = p.name .. "   (owned: " .. p.owned .. ")", Font = FONT_BOLD, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(0.6, 0, 0, 24), ZIndex = 23, Parent = row })
+		label({ Text = p.desc, TextSize = 14, TextColor3 = Color3.fromRGB(170, 175, 190), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(0.6, 0, 0, 40), Position = UDim2.fromOffset(0, 26), ZIndex = 23, Parent = row })
+		local buy = button({ Text = p.forSale and "Buy" or "Soon", TextSize = 16, Size = UDim2.new(0.34, 0, 0, 30), Position = UDim2.new(0.66, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(190, 130, 30), ZIndex = 23, Parent = row })
+		local use = button({ Text = p.equipped and "Using next run" or "Use next run", TextSize = 14, Size = UDim2.new(0.34, 0, 0, 30), Position = UDim2.new(0.66, 0, 0, 36), BackgroundColor3 = p.equipped and Color3.fromRGB(50, 120, 90) or Color3.fromRGB(44, 52, 74), ZIndex = 23, Parent = row })
+		if not p.forSale then buy.AutoButtonColor = false end
+		buy.Activated:Connect(function()
+			if not p.forSale or busy then return end
+			busy = true
+			local res = remote:InvokeServer("buy", p.id)
+			busy = false
+			if res and res.packs then buildShop(res.packs) end
+		end)
+		use.Activated:Connect(function()
+			if busy or p.owned < 1 then return end
+			busy = true
+			local res = remote:InvokeServer("equip", { id = p.id, on = not p.equipped })
+			busy = false
+			if res and res.packs then buildShop(res.packs) end
+		end)
+	end
+end
+shopButton.Activated:Connect(function() shop.Visible = true end)
+shopClose.Activated:Connect(function() shop.Visible = false end)
+ReplicatedStorage:WaitForChild("InventoryChanged").OnClientEvent:Connect(buildShop)
+
 -- Game panel ---------------------------------------------------------
 local game_ = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 3, Parent = root })
 local panel = make("Frame", {
@@ -128,7 +174,6 @@ local choiceScroll = make("ScrollingFrame", {
 
 ---------------------------------------------------------------- behaviour
 
-local busy = false
 local currentView = nil
 local typeToken = 0
 local fxToken = 0
@@ -160,7 +205,7 @@ local function clearChoices()
 end
 
 local function updateStats(view)
-	TweenService:Create(healthFill, TweenInfo.new(0.4), { Size = UDim2.fromScale(math.clamp(view.health / 100, 0, 1), 1) }):Play()
+	TweenService:Create(healthFill, TweenInfo.new(0.4), { Size = UDim2.fromScale(math.clamp(view.health / view.maxHealth, 0, 1), 1) }):Play()
 	TweenService:Create(calmFill, TweenInfo.new(0.4), { Size = UDim2.fromScale(math.clamp(view.calm / 100, 0, 1), 1) }):Play()
 	local items = #view.items > 0 and table.concat(view.items, ", ") or "none"
 	itemsLabel.Text = "Items: " .. items .. (view.panicked and "     PANICKING: risky moves are harder" or "")
@@ -299,6 +344,7 @@ function showMenu()
 	menu.Visible = true
 	local res = remote:InvokeServer("menu")
 	if res and res.menu then buildCards(res.menu) end
+	if res and res.packs then buildShop(res.packs) end
 end
 
 quit.Activated:Connect(function() if not busy then showMenu() end end)

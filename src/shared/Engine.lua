@@ -15,13 +15,19 @@ local function clamp(v, lo, hi)
 	return v
 end
 
-function Engine.new(scenario)
+-- loadout (optional): { items = {"knife"}, healthBonus = 50 } from purchased packs.
+function Engine.new(scenario, loadout)
+	loadout = loadout or {}
+	local maxHealth = MAX_HEALTH + (loadout.healthBonus or 0)
+	local items = {}
+	for _, item in ipairs(loadout.items or {}) do items[item] = true end
 	return {
 		scenarioId = scenario.id,
 		node = scenario.start,
-		health = MAX_HEALTH,
+		maxHealth = maxHealth,
+		health = maxHealth,
 		calm = MAX_CALM,
-		items = {},
+		items = items,
 		flags = {},
 		note = nil,
 		steps = 0,
@@ -58,7 +64,7 @@ end
 
 local function applyEffects(state, fx)
 	if not fx then return end
-	if fx.health then state.health = clamp(state.health + fx.health, 0, MAX_HEALTH) end
+	if fx.health then state.health = clamp(state.health + fx.health, 0, state.maxHealth) end
 	if fx.calm then state.calm = clamp(state.calm + fx.calm, 0, MAX_CALM) end
 	if fx.give then
 		for _, item in ipairs(fx.give) do state.items[item] = true end
@@ -89,6 +95,7 @@ function Engine.view(scenario, state)
 		fx = node.fx or "none",
 		note = state.note,
 		health = state.health,
+		maxHealth = state.maxHealth,
 		calm = state.calm,
 		items = sortedKeys(state.items),
 		panicked = state.calm <= PANIC_THRESHOLD,
@@ -135,7 +142,10 @@ function Engine.choose(scenario, state, index, rng)
 	if choice.chance then
 		local p = choice.chance.p
 		if state.calm <= PANIC_THRESHOLD then p = p - PANIC_PENALTY end
-		if state.items[choice.chance.boostItem or ""] then p = p + (choice.chance.boost or 0.2) end
+		local boostItems = choice.chance.boostItems or { choice.chance.boostItem }
+		for _, item in ipairs(boostItems) do
+			if state.items[item] then p = p + (choice.chance.boost or 0.2) break end
+		end
 		p = clamp(p, 0.05, 0.95)
 		if rng() < p then
 			target = choice.chance.win

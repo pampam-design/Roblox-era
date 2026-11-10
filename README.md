@@ -10,6 +10,8 @@ hero, or didn't make it), with a short real-world safety lesson at the end.
 | Rising Water | Subway | Flash flood | 4 |
 | Ember Night | Campsite | Wildfire | 4 |
 | The Sea Pulls Back | Beach resort | Tsunami | 4 |
+| Dead Hours | Apartment block | Zombie outbreak | 6 |
+| Flash Warning | Office tower | Nuclear missile | 4 |
 
 ## How it plays
 
@@ -18,6 +20,21 @@ hero, or didn't make it), with a short real-world safety lesson at the end.
 - **Items** you pick up unlock choices later (torch, belt, wet cloth...).
 - **Risky** choices roll dice on the server; panic lowers your odds.
 - Endings you discover are saved per player (DataStore) and shown on the menu.
+
+## Starter packs (Robux)
+
+`src/shared/Shop.lua` defines consumable packs: Supply Pack (water, food),
+Survival Knife, Extra HP (+50 starting health) and a bundle. A pack is used up
+by one run. Items open extra choices in some scenes and boost some risk rolls.
+
+To go live: create one **Developer Product** per pack in the Creator Dashboard
+and paste each id into `productId`. While `productId` is 0 the packs are free
+in Studio (for testing) and show as "Soon" in the live game. Purchases go
+through `ProcessReceipt` (idempotent, saved before granting).
+
+Design rule: **no ending is locked behind a pack.** Packs only add shortcuts and
+a bigger safety margin. `tools/test_story.py` checks that every ending is
+reachable with zero packs. Keep it that way if you add content.
 
 ## Running it
 
